@@ -1,8 +1,7 @@
 FROM tensorflow/tensorflow:latest-gpu
 
 # Create the environment:
-RUN apt-get update
-RUN apt-get update --fix-missing
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 RUN apt-get install -y iputils-ping iproute2 git tmux virtualenv wget vim curl
 
 RUN pip install --upgrade pip
@@ -15,7 +14,7 @@ RUN pip install yuvio
 RUN pip install scikit-learn
 RUN pip install seaborn
 RUN pip install matplotlib
-
+RUN pip install requests
 RUN pip install Pillow
 RUN pip install pandas
 RUN pip install opencv-python

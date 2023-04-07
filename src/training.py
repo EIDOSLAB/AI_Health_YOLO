@@ -7,16 +7,17 @@ def no_scheduler(epoch, lr):
 
 
 def step_scheduler(epoch, lr):
-    if epoch <= 10: 
-        return lr   # 0.00005
-    elif epoch <= 35:
+    # 0.00005
+    if epoch == 20:
         return lr / 2 # 0.00003
-    else:
+    elif epoch == 70:
         return lr / 2 # 0.00001
+    else:
+        return lr
 
 
 def exp_scheduler(epoch, lr):
-    if epoch < 5:
+    if epoch < 10:
         return lr
     else:
         return lr * tf.math.exp(-0.1)

@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import LearningRateScheduler
 from training import step_scheduler, exp_scheduler, no_scheduler
 
 from tf2_YOLO.utils.tools import get_class_weight
-from tensorflow.keras.optimizers import SGD, Adam
+from tensorflow.keras.optimizers.legacy import SGD, Adam
 
 from tf2_YOLO.utils.measurement import create_score_mat
 import sys
@@ -42,26 +42,19 @@ sweep_configuration = {
         'batch_size':{
             'values': [4,8,16,32]
         },
-        'ignore_thresh_loss':{
-            'max': 0.8,
-            'min': 0.2
-        },
-        'use_focal_loss': {
-            'values': [True, False]
-        },
         'decay':{
-            'values':[
-                'none',
-                'step',
-                'exp'
-            ]
-        },
-        'optimizer':{
-            'values': ['sgd', 'adam']
+            'values':['none','step','exp']
         },
         'lr':{
             'values': [2.5e-5, 5e-5, 7.5e-5]
-        }
+        }, 
+        'optimizer':{
+            'values': ['sgd', 'adam']
+        },
+        'ignore_thresh_loss':{
+            'max': 0.8,
+            'min': 0.2
+        }       
     }
 }
 
@@ -81,26 +74,26 @@ def main():
 
     wandb.init()
 
-    epochs = 50
+    epochs = 100
 
     weighted = wandb.config.weighted_classes
     k_anchor = wandb.config.k_anchor 
     dist_function = iou_dist if wandb.config.dist_function == 'iou_dist' else euclidean_dist
 
     ignore_thresh_loss = wandb.config.ignore_thresh_loss 
-    use_focal_loss = wandb.config.use_focal_loss 
+    use_focal_loss = True 
     batch_size = wandb.config.batch_size 
     decay = wandb.config.decay
     lr = wandb.config.lr
-    optimizer = Adam(lr=lr) if wandb.config.optimizer == 'adam' else SGD(lr=lr, momentum=0.9, decay=5e-4)
+    optimizer = Adam(learning_rate=lr) if wandb.config.optimizer == 'adam' else SGD(learning_rate=lr, momentum=0.9, decay=5e-4)
 
-    scheduler = no_scheduler
+    
     if(decay == 'exp'):
         scheduler = exp_scheduler
     elif(decay == 'step'):
         scheduler = step_scheduler
     else:
-        raise Exception('weight decay not valid')
+        scheduler = no_scheduler
 
 
     class_names = ["RBC", "WBC", "Platelets"]
@@ -181,7 +174,6 @@ def main():
     )
     
     # Training
-    epochs = epochs
     train_history = yolo.model.fit(
         train_img,
         train_labels,
