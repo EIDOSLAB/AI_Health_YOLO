@@ -22,70 +22,77 @@ from tf2_YOLO.utils.measurement import PRfunc
 import argparse
 
 
-sweep_configuration = {
-    'method':'bayes',
-    'name': 'sweep_yolov3',
-    'metric':{
-        'goal':'minimize',
-        'name':'epoch/val_loss'
-    },
-    'parameters':{
-        'k_anchor':{
-            'values': [9, 18, 27]
-        },
-        'weighted_classes':{
-            'values': [True, False]
-        },
-        'dist_function':{
-            'values': ['iou_dist', 'euclidean_dist']
-        },
-        'batch_size':{
-            'values': [4,8,16,32]
-        },
-        'decay':{
-            'values':['none','step','exp']
-        },
-        'lr':{
-            'values': [2.5e-5, 5e-5, 7.5e-5]
-        }, 
-        'optimizer':{
-            'values': ['sgd', 'adam']
-        },
-        'ignore_thresh_loss':{
-            'max': 0.8,
-            'min': 0.2
-        }       
-    }
-}
+# sweep_configuration = {
+#     'method':'bayes',
+#     'name': 'sweep_yolov3',
+#     'metric':{
+#         'goal':'maximize',
+#         'name':'val/f1_mean'
+#     },
+#     'parameters':{
+#         'k_anchor':{
+#             'values': [9, 18, 27]
+#         },
+#         'weighted_classes':{
+#             'values': [True, False]
+#         },
+#         'dist_function':{
+#             'values': ['iou_dist', 'euclidean_dist']
+#         },
+#         'batch_size':{
+#             'values': [4,8,16,32]
+#         },
+#         'decay':{
+#             'values':['none','step','exp']
+#         },
+#         'lr':{
+#             'values': [2.5e-5, 5e-5, 7.5e-5]
+#         }, 
+#         'optimizer':{
+#             'values': ['sgd', 'adam']
+#         },
+#         'ignore_thresh_loss':{
+#             'max': 0.8,
+#             'min': 0.2
+#         }       
+#     }
+# }
 
 parser = argparse.ArgumentParser(description="Example training script.")
 parser.add_argument("--sweep-id", type = str, default = "none")
 args = parser.parse_args()
 
-if(args.sweep_id == 'none'):
-    sweep_id = wandb.sweep(sweep=sweep_configuration, project='fine_tune_yolov3')
-else:
-    sweep_id = args.sweep_id
+# if(args.sweep_id == 'none'):
+#     sweep_id = wandb.sweep(sweep=sweep_configuration, project='sweep_yolov3')
+# else:
+#     sweep_id = args.sweep_id
 
 
 def main():
     
     wandb.login()
 
-    wandb.init()
+    wandb.init(project='sweep_yolov3', name='baseline')
 
-    epochs = 100
+    epochs = 50
 
-    weighted = wandb.config.weighted_classes
-    k_anchor = wandb.config.k_anchor 
-    dist_function = iou_dist if wandb.config.dist_function == 'iou_dist' else euclidean_dist
-
-    ignore_thresh_loss = wandb.config.ignore_thresh_loss 
+    # weighted = wandb.config.weighted_classes
+    # k_anchor = wandb.config.k_anchor 
+    weighted = True
+    k_anchor = 9
+    # dist_function = iou_dist if wandb.config.dist_function == 'iou_dist' else euclidean_dist
+    dist_function = iou_dist 
+    
+    # ignore_thresh_loss = wandb.config.ignore_thresh_loss 
+    ignore_thresh_loss = 0.7
     use_focal_loss = True 
-    batch_size = wandb.config.batch_size 
-    decay = wandb.config.decay
-    lr = wandb.config.lr
-    optimizer = Adam(learning_rate=lr) if wandb.config.optimizer == 'adam' else SGD(learning_rate=lr, momentum=0.9, decay=5e-4)
+    #batch_size = wandb.config.batch_size 
+    batch_size = 5
+    #decay = wandb.config.decay
+    decay = 'step'
+    #lr = wandb.config.lr
+    lr = 5e-5
+    optimizer = Adam(learning_rate=lr) # if wandb.config.optimizer == 'adam' else SGD(learning_rate=lr, momentum=0.9, decay=5e-4)
 
     
     if(decay == 'exp'):
@@ -158,12 +165,12 @@ def main():
         "prob":1
     }
 
-    loss = yolo.loss(
+    loss = yolo.loss (
         binary_weight_list,
         loss_weight=loss_weight,
         ignore_thresh=ignore_thresh_loss,
         use_focal_loss=use_focal_loss,
-        )
+    )
 
 
     yolo.model.compile(
@@ -197,16 +204,38 @@ def main():
         nms_threshold=0.5,
         version=3)
     
-    print(score_df)
+    #print(score_df)
+    
+    f1_mean = sum(score_df['F1-score'])/len(score_df['F1-score'])
 
     table = wandb.Table(dataframe=score_df)
-    wandb.log({"test/score_metrics": table})
+    wandb.log({"test/score_metrics": table, "test/f1_mean": f1_mean})
+    
+    
+    prediction = yolo.model.predict(val_img, batch_size=10)
+    score_df = create_score_mat(
+        val_labels[2],
+        prediction[2],
+        prediction[1],
+        prediction[0],
+        class_names=class_names,
+        conf_threshold=0.5,
+        nms_mode=2,
+        nms_threshold=0.5,
+        version=3)
+    
+    #print(score_df)
+    
+    f1_mean = sum(score_df['F1-score'])/len(score_df['F1-score'])
 
+    table = wandb.Table(dataframe=score_df)
+    wandb.log({"val/score_metrics": table, "val/f1_mean": f1_mean})
 
 
 # Start sweep job.
-wandb.agent(sweep_id, function=main)
+#wandb.agent(sweep_id, function=main)
 
 
-
+if __name__ == '__main__':
+    main()
 
